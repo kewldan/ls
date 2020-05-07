@@ -1,31 +1,41 @@
-from tkinter import *
-from random import randrange, random
-from math import floor
-from time import time
-from os.path import exists
-from numpy import load, save
+#   Life Simulation  #
+#   Симуляция жизни  #
+# От Avenger/kewldan #
+#     Version 1.0    #
+#     07.05.2020     #
+
+from tkinter import * #Для визуализации
+from random import randrange, random #Для случайных чисел
+from math import floor #Для математических действий
+from time import time #Для времени
+from os.path import exists #Для работы с File System
+from numpy import load, save #Для загрузки/сохранения
 
 root = Tk()
-root.title("Жызн")
+root.title("Life simulation")
 
 #НАСТРОЙКИ
+#НАЗВАНИЕ = ЗНАЧЕНИЕ #ЧТО МЕНЯЕТ # ЗНАЧЕНИЕ ПО УМОЛЧАНИЮ
 SEG_SIZE = 10 #Размер клетки # 10
 WIDTH = 1280 #Ширина окна # 1280
 HEIGHT = 720 #Высота окна # 720
 BACKGROUND = "#000" #Цвет фона # "#000"
-MutationChance = 100 #Шанс мутации # 25
+FPS = 30 #Количество обновлений экрана в секунду #30
+MutationChance = 99 #Шанс мутации # 25
 NEnergy = 300 #Начальная энергия семечка # 300
-MaxEnergy = 48 #Максимальная получаемая энергия # 32
-CellEnergy = 13 #Количество потребляемой энергии на клетку # 13
+MaxEnergy = 128 #Максимальная получаемая энергия # 32
+CellEnergy = 10 #Количество потребляемой энергии на клетку # 13
+AllowLog = False #Включить логи (Не рекомендуется, снижает FPS) # False
 #/////////
 
-#ПРОДВИНУТЫЕ НАСТРОЙКИ
+#ПРОДВИНУТЫЕ НАСТРОЙКИ (РЕДОКТИРОВАТЬ КРАЙНЕ НЕ РЕКОМЕНДУЕТСЯ)
 CENTER = floor(WIDTH / 2 / SEG_SIZE) * SEG_SIZE #Формула для расчёта центра
-FPS = 8 #Количество обновлений экрана в секунду
+BOTTOM = floor(HEIGHT / SEG_SIZE) * SEG_SIZE - SEG_SIZE + 2
 CounterMax = 10 #Каждые n ходов писать статастику
-GenLength = 16 #Длина гена
-saveFileName = "gen.npy"
-record = [0]
+GenLength = 16 #Длина генома
+saveFileName = "gen.npy" #Название файла для сохранения
+record = [0, []] #Рекорд
+TotalMove = 0 #Ход
 #/////////////////////
 
 c = Canvas(root, width = WIDTH, height = HEIGHT, bg = BACKGROUND)
@@ -36,19 +46,29 @@ if exists(saveFileName):
     record = load(saveFileName, allow_pickle = True)
 
 #top bottom left right
-def generateGen(n = 8): #Генирация гена
+def generateGen(n = 8): #Генерация гена
     global GenLength
     m = []
     for _ in range(n):
         m.append([randrange(-1, GenLength - 1, 1), randrange(-1, GenLength - 1, 1), randrange(-1, GenLength - 1, 1), randrange(-1, GenLength - 1, 1)])
     return m
 
-def generateColor(l = 3): #Генирация цвета
+def generateColor(l = 3): #Генерация цвета
     rt = "#"
     m = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"]
     for _ in range(l):
         rt += m[randrange(0, len(m) - 1, 1)]
     return rt
+
+def Log(LogString):
+    global AllowLog
+    if AllowLog:
+        print("[LOG]", LogString)
+
+#TODO: Сделать свой randrange() через random()
+#TODO: Добавить описание на GitHub
+#TODO: Сделать просмотр дерева через геном
+#TODO: Написать свой геном
 
 
 # 0 - white, 1 - green
@@ -63,23 +83,25 @@ class life(object): #Жызн
         self.color = color
         self.this = c.create_rectangle(x, y, x + SEG_SIZE - 1, y + SEG_SIZE - 1, fill = "#fff", outline = "#fff")
     def kill(self): #Удаление с поля
+        global c
         c.delete(self.this)
 
 class wood(object):
     def __init__(self, energy, color, x, y, gen):
+        global TotalMove
         self.energy = energy
         self.lifes = []
         self.color = color
         self.gen = gen
-        self.time = time()
+        self.time = TotalMove
         self.lifes.append(life(gen, x, y, 1, color))
     def getMoveEnergy(self): # Получить энергию за ход
         full = 0
         for j in range(len(self.lifes)):
-            if self.lifes[j].type == 1:
-                continue
             try:
-                full += MaxEnergy / (HEIGHT / (HEIGHT - self.lifes[j].y))
+                if self.lifes[j].type == 1:
+                    full += MaxEnergy / (HEIGHT / (HEIGHT - self.lifes[j].y))
+                #TODO: Если клетку перекрывает другая клетка - уменьшаем получаемую энергию
             except:
                 pass
         return full
@@ -89,32 +111,49 @@ class session(object): #Для игры
         self.woods = []
     def add_wood(self, color, x, y, gen): #Добавить дерево
         self.woods.append(wood(NEnergy, color, x, y, gen))
-    def del_wood(self, index): #Удалить дерево по индексу
-        del self.woods[index]
     def update(self): #Обновить
         global GenLength, saveFileName
         l = 0
         while l < len(self.woods):
-            woody = self.woods[l]
-            woody.energy -= (len(woody.lifes) * CellEnergy)
-            if woody.energy <= 0:
-                for cell2 in range(len(woody.lifes)):
-                    cell = woody.lifes[cell2]
+            woody2 = self.woods[l]
+            woody2.energy -= (len(woody2.lifes) * CellEnergy)
+            if woody2.energy <= 0:
+                cell26 = 0
+                while cell26 < len(woody2.lifes):
+                    cell = woody2.lifes[cell26]
                     if cell.type == 0:
-                        Ngen = woody.gen
+                        Ngen = woody2.gen
                         if random() < MutationChance / 100: # Семечко мутирует
                             Ngen[randrange(0, GenLength - 1, 1)] = [randrange(-1, GenLength - 1, 1), randrange(-1, GenLength - 1, 1), randrange(-1, GenLength - 1, 1), randrange(-1, GenLength - 1, 1)]
-                        self.add_wood(generateColor(3), cell.x, HEIGHT - SEG_SIZE, Ngen)
-                    cell.kill()
-                if record[0] < time() - self.woods[l].time:
-                    save(saveFileName, [time() - self.woods[l].time, self.woods[l].gen])
-                    record[0] = time() - self.woods[l].time
+                        free = True
+                        for w in range(len(self.woods)):
+                            woody3 = self.woods[w]
+                            if w == l:
+                                continue
+                            for c in range(len(woody3.lifes)):
+                                cell22 = woody3.lifes[c]
+                                if cell22.x == cell.x and cell22.y == BOTTOM:
+                                    free = False
+                        if free:
+                            self.add_wood(generateColor(3), cell.x, BOTTOM, Ngen)
+                    woody2.lifes[cell26].kill()
+                    cell26 += 1
+                if record[0] < TotalMove - self.woods[l].time:
+                    save(saveFileName, [TotalMove - self.woods[l].time, self.woods[l].gen])
+                    record[0] = TotalMove - self.woods[l].time
                     record[1] = self.woods[l].gen
                 del self.woods[l]
             else:
-                self.woods[l].energy += woody.getMoveEnergy()
+                self.woods[l].energy += woody2.getMoveEnergy()
 
             l += 1
+        
+        #Алгоритм - анти-вымирание
+        if len(self.woods) == 0:
+            self.add_wood(generateColor(3), CENTER, BOTTOM, record[1])
+            Log("Анти вымирание")
+        #/////////////////////////
+    
     def sexAll(self): #Размножить всех
         for k in range(len(self.woods)): #Для каждого дерева
             for d in range(len(self.woods[k].lifes)): #Для каждой клетки дерева
@@ -127,7 +166,7 @@ class session(object): #Для игры
                             nX = tf.x + b[g][0] # Получение X
                             nY = tf.y + b[g][1] # Получение Y
                             nL = 1
-                            if nX < 0 or nX > WIDTH or nY < 0 or nY > HEIGHT: #если клетка не за границей поля
+                            if nX < 0 or nX + SEG_SIZE > WIDTH or nY < 0 or nY + SEG_SIZE - 3 > HEIGHT: #если клетка не за границей поля
                                 nL = 0
                             for a in range(len(self.woods)): # Для дерева
                                 for b in range(len(self.woods[a].lifes)): # для каждой клетки
@@ -147,28 +186,29 @@ else:
     default = generateGen(GenLength)
 
 game = session()
-game.add_wood("#00f", CENTER, HEIGHT - SEG_SIZE, default) #Первое дерево
+game.add_wood("#00f", CENTER, BOTTOM, default) #Первое дерево
 
 srtTime = time()
 allTime = time()
 counter = 0
 
 def progress():
-    global FPS, allTime, srtTime, CounterMax, counter, record
+    global FPS, allTime, srtTime, CounterMax, counter, record, TotalMove
     if game.sexAll():
         game.update()
     if counter == CounterMax:
         print("Время хода", round((time() - srtTime) / CounterMax, 3), "секунд")
         print("FPS:", 1 / ((time() - srtTime) / CounterMax))
         srtTime = time()
-        print("Время симуляции", round(time() - allTime, 3), "секунд")
+        print("Время симуляции", round(time() - allTime, 3), "секунд", "/", TotalMove, "ходов")
         print("Количество деревьев", len(game.woods))
-        print("Рекорд жизни", round(record[0], 1), "секунд")
+        print("Рекорд жизни", round(record[0], 1), "ходов")
         print("Лучший ген", record[1])
         print(" ")
         counter = 0
     else:
         counter += 1
+    TotalMove += 1
 
     root.after(int(1000/FPS), progress)
 
