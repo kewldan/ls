@@ -1,39 +1,41 @@
 #   Life Simulation  #
 #   Симуляция жизни  #
 # От Avenger/kewldan #
-#     Version 1.0    #
-#     07.05.2020     #
+#     Version 1.1    #
+#     08.05.2020     #
 
-from tkinter import * #Для визуализации
+from tkinter import Tk, Canvas #Для визуализации
 from random import randrange, random #Для случайных чисел
 from math import floor #Для математических действий
 from time import time #Для времени
 from os.path import exists #Для работы с File System
-from numpy import load, save #Для загрузки/сохранения
 
 root = Tk()
 root.title("Life simulation")
 
 #НАСТРОЙКИ
 #НАЗВАНИЕ = ЗНАЧЕНИЕ #ЧТО МЕНЯЕТ # ЗНАЧЕНИЕ ПО УМОЛЧАНИЮ
-SEG_SIZE = 10 #Размер клетки # 10
-WIDTH = 1280 #Ширина окна # 1280
-HEIGHT = 720 #Высота окна # 720
+SEG_SIZE = 5 #Размер клетки # 10
+WIDTH = 128 #Ширина окна # 128
+HEIGHT = 128 #Высота окна # 128
 BACKGROUND = "#000" #Цвет фона # "#000"
 FPS = 30 #Количество обновлений экрана в секунду #30
-MutationChance = 99 #Шанс мутации # 25
+MutationChance = 25 #Шанс мутации # 25
 NEnergy = 300 #Начальная энергия семечка # 300
-MaxEnergy = 128 #Максимальная получаемая энергия # 32
-CellEnergy = 10 #Количество потребляемой энергии на клетку # 13
+MaxEnergy = 128 #Максимальная получаемая энергия # 128
+CellEnergy = 13 #Количество потребляемой энергии на клетку # 13
 AllowLog = False #Включить логи (Не рекомендуется, снижает FPS) # False
 #/////////
+
+WIDTH *= SEG_SIZE
+HEIGHT *= SEG_SIZE
 
 #ПРОДВИНУТЫЕ НАСТРОЙКИ (РЕДОКТИРОВАТЬ КРАЙНЕ НЕ РЕКОМЕНДУЕТСЯ)
 CENTER = floor(WIDTH / 2 / SEG_SIZE) * SEG_SIZE #Формула для расчёта центра
 BOTTOM = floor(HEIGHT / SEG_SIZE) * SEG_SIZE - SEG_SIZE + 2
 CounterMax = 10 #Каждые n ходов писать статастику
 GenLength = 16 #Длина генома
-saveFileName = "gen.npy" #Название файла для сохранения
+saveFileName = "gen.txt" #Название файла для сохранения
 record = [0, []] #Рекорд
 TotalMove = 0 #Ход
 #/////////////////////
@@ -42,8 +44,19 @@ c = Canvas(root, width = WIDTH, height = HEIGHT, bg = BACKGROUND)
 c.grid()
 c.focus_set()
 
+def load(fileName):
+    _file = open(fileName, "r")
+    text = _file.read()
+    if text:
+        return [int(text.split()[0]), eval(text[len(str(text.split()[0])):])]
+
+def save(fileName, __record):
+    _file = open(fileName, "w")
+    _file.write(str(__record[0]) +  " [" + ','.join(str(e) for e in __record[1]) + "]")
+    _file.close()
+
 if exists(saveFileName):
-    record = load(saveFileName, allow_pickle = True)
+    record = load(saveFileName)
 
 #top bottom left right
 def generateGen(n = 8): #Генерация гена
@@ -66,9 +79,7 @@ def Log(LogString):
         print("[LOG]", LogString)
 
 #TODO: Сделать свой randrange() через random()
-#TODO: Добавить описание на GitHub
-#TODO: Сделать просмотр дерева через геном
-#TODO: Написать свой геном
+#TODO: Сделать просмотр дерева через геном P.S. В версии 2.0 это будет =)
 
 
 # 0 - white, 1 - green
@@ -86,7 +97,7 @@ class life(object): #Жызн
         global c
         c.delete(self.this)
 
-class wood(object):
+class wood(object): #Дерево
     def __init__(self, energy, color, x, y, gen):
         global TotalMove
         self.energy = energy
@@ -94,7 +105,7 @@ class wood(object):
         self.color = color
         self.gen = gen
         self.time = TotalMove
-        self.lifes.append(life(gen, x, y, 1, color))
+        self.lifes.append(life(gen, x, y, 0, color))
     def getMoveEnergy(self): # Получить энергию за ход
         full = 0
         for j in range(len(self.lifes)):
@@ -150,7 +161,7 @@ class session(object): #Для игры
         
         #Алгоритм - анти-вымирание
         if len(self.woods) == 0:
-            self.add_wood(generateColor(3), CENTER, BOTTOM, record[1])
+            self.add_wood(generateColor(3), CENTER, BOTTOM, generateGen(GenLength))
             Log("Анти вымирание")
         #/////////////////////////
     
@@ -174,14 +185,15 @@ class session(object): #Для игры
                                         nL = 0
                             if nL: #Если клетка свободна
                                 self.woods[k].lifes.append(life(tf.gen, nX, nY, Gen[g], self.woods[k].color))
-                        tf.type = 1
-                        tf.kill()
-                        tf.this = c.create_rectangle(tf.x, tf.y, tf.x + SEG_SIZE - 1, tf.y + SEG_SIZE - 1, fill = tf.color, outline = tf.color)
+                        if Gen != [-1, -1, -1, -1]:
+                            tf.type = 1
+                            tf.kill()
+                            tf.this = c.create_rectangle(tf.x, tf.y, tf.x + SEG_SIZE - 1, tf.y + SEG_SIZE - 1, fill = tf.color, outline = tf.color)
         return True
 
 default = [] #Ген по умолчанию
 if exists(saveFileName):
-    default = load(saveFileName, allow_pickle = True)[1]
+    default = load(saveFileName)[1]
 else:
     default = generateGen(GenLength)
 
